@@ -2,6 +2,7 @@
 
 using System;
 using System.Net;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Azure.IoTSolutions.IoTStreamAnalytics.Services.Diagnostics;
 using Microsoft.Azure.IoTSolutions.IoTStreamAnalytics.Services.Exceptions;
@@ -13,6 +14,8 @@ namespace Microsoft.Azure.IoTSolutions.IoTStreamAnalytics.Services.Helpers
     public interface IHttpClientWrapper
     {
         Task<T> GetAsync<T>(string uri, string description, bool acceptNotFound = false);
+
+        Task<T> PostAsync<T>(string uri, T postObj, string description);
     }
 
     public class HttpClientWrapper : IHttpClientWrapper
@@ -60,6 +63,49 @@ namespace Microsoft.Azure.IoTSolutions.IoTStreamAnalytics.Services.Helpers
             {
                 logger.Error("Request failed", () => new { uri, response.StatusCode, response.Content });
                 throw new ExternalDependencyException($"Unable to load {description}");
+            }
+
+            try
+            {
+                return JsonConvert.DeserializeObject<T>(response.Content);
+            }
+            catch (Exception e)
+            {
+                logger.Error($"Could not parse result from {uri}: {e.Message}", () => { });
+                throw new ExternalDependencyException($"Could not parse result from {uri}");
+            }
+        }
+
+        public async Task<T> PostAsync<T>(string uri, T postObj, string description)
+        {
+            var request = new HttpRequest();
+            request.SetUriFromString(uri);
+            request.Headers.Add("Accept", "application/json");
+            request.Headers.Add("Cache-Control", "no-cache");
+            request.Headers.Add("User-Agent", "Telemetry Agent");
+
+            //request.Options.Timeout = 5 * 1000;
+            //request.Options.AllowInsecureSSLServer = true;
+            request.Options.EnsureSuccess = false;
+
+            request.SetContent<T>(postObj, Encoding.UTF8, "application/json");
+
+            IHttpResponse response;
+
+            try
+            {
+                response = await client.PostAsync(request);
+            }
+            catch (Exception e)
+            {
+                logger.Error("Request failed", () => new { uri, e });
+                throw new ExternalDependencyException($"Failed to create {description}");
+            }
+
+            if (response.StatusCode != HttpStatusCode.OK)
+            {
+                logger.Error("Request failed", () => new { uri, response.StatusCode, response.Content });
+                throw new ExternalDependencyException($"Unable to create {description}");
             }
 
             try
