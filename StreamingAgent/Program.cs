@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Autofac;
@@ -33,78 +34,103 @@ namespace Microsoft.Azure.IoTSolutions.IoTStreamAnalytics.StreamingAgent
             var ruleService = container.Resolve<IRules>();
             var logger = container.Resolve<ILogger>();
 
-            // Create new rules
-            RuleApiModel heatingOnRule = new RuleApiModel
+            var allRules = ruleService.GetAllAsync().Result;
+            allRules = allRules.Where(r => r.GroupId.Equals("toilet", StringComparison.OrdinalIgnoreCase));
+
+            RuleApiModel heatingOnRule;
+            RuleApiModel heatingOffRule;
+
+            var result = allRules.Where(r => r.Name.Equals("turn-on-heating", StringComparison.OrdinalIgnoreCase));
+            if (result != null && result.Count() > 0)
             {
-                Name = "turn-on-heating",
-                Enabled = true,
-                Description = "Time to turn on hearing for user's smart toilet",
-                GroupId = "toilet",
-                Severity = "info",
-                Conditions = new List<ConditionApiModel>
+                // heating-on rule already exists
+                heatingOnRule = result.Last();
+            }
+            else
+            {
+                // Create new rules
+                heatingOnRule = new RuleApiModel
                 {
-                    new ConditionApiModel
+                    Name = "turn-on-heating",
+                    Enabled = true,
+                    Description = "Time to turn on hearing for user's smart toilet",
+                    GroupId = "toilet",
+                    Severity = "info",
+                    Conditions = new List<ConditionApiModel>
                     {
-                        Field = "time",
-                        Operator = "Equals",
-                        Value = "5 PM"
-                    },
+                        new ConditionApiModel
+                        {
+                            Field = "time",
+                            Operator = "Equals",
+                            Value = "5 PM"
+                        },
 
-                    new ConditionApiModel
-                    {
-                        Field = "heatingStatus",
-                        Operator = "Equals",
-                        Value = "off"
+                        new ConditionApiModel
+                        {
+                            Field = "heatingStatus",
+                            Operator = "Equals",
+                            Value = "off"
+                        }
                     }
-                }
-            };
+                };
 
-            RuleApiModel heatingOffRule = new RuleApiModel
-            {
-                Name = "turn-off-heating",
-                Enabled = true,
-                Description = "Time to turn off hearing for user's smart toilet",
-                GroupId = "toilet",
-                Severity = "info",
-                Conditions = new List<ConditionApiModel>
+                RuleApiModel heatingOnRuleResponse = null;
+
+                try
                 {
-                    new ConditionApiModel
-                    {
-                        Field = "time",
-                        Operator = "Equals",
-                        Value = "5:15 PM"
-                    },
-
-                    new ConditionApiModel
-                    {
-                        Field = "heatingStatus",
-                        Operator = "Equals",
-                        Value = "on"
-                    }
+                    heatingOnRuleResponse = await ruleService.CreateAsync(heatingOnRule);
+                    logger.Info($"Create heating-on rule succeeded, rule ID: {heatingOnRuleResponse.Id}", () => { });
                 }
-            };
-
-            RuleApiModel heatingOnRuleResponse = null;
-            RuleApiModel heatingOffRuleResponse = null;
-
-            try
-            {
-                heatingOnRuleResponse = await ruleService.CreateAsync(heatingOnRule);
-                logger.Info($"Create heating-on rule succeeded, rule ID: {heatingOnRuleResponse.Id}", () => { });
-            }
-            catch (Exception e)
-            {
-                logger.Error($"Create heating-on rule failed, error details: {e.Message}", () => { });
+                catch (Exception e)
+                {
+                    logger.Error($"Create heating-on rule failed, error details: {e.Message}", () => { });
+                }
             }
 
-            try
+            result = allRules.Where(r => r.Name.Equals("turn-off-heating", StringComparison.OrdinalIgnoreCase));
+            if (result != null && result.Count() > 0)
             {
-                heatingOffRuleResponse = await ruleService.CreateAsync(heatingOffRule);
-                logger.Info($"Create heating-off rule succeeded, rule ID: {heatingOnRuleResponse.Id}", () => { });
+                // heating-off rule already exists
+                heatingOffRule = result.Last();
             }
-            catch (Exception e)
+            else
             {
-                logger.Error($"Create heating-off rule failed, error details: {e.Message}", () => { });
+                heatingOffRule = new RuleApiModel
+                {
+                    Name = "turn-off-heating",
+                    Enabled = true,
+                    Description = "Time to turn off hearing for user's smart toilet",
+                    GroupId = "toilet",
+                    Severity = "info",
+                    Conditions = new List<ConditionApiModel>
+                    {
+                        new ConditionApiModel
+                        {
+                            Field = "time",
+                            Operator = "Equals",
+                            Value = "5:15 PM"
+                        },
+
+                        new ConditionApiModel
+                        {
+                            Field = "heatingStatus",
+                            Operator = "Equals",
+                            Value = "on"
+                        }
+                    }
+                };
+
+                RuleApiModel heatingOffRuleResponse = null;
+
+                try
+                {
+                    heatingOffRuleResponse = await ruleService.CreateAsync(heatingOffRule);
+                    logger.Info($"Create heating-off rule succeeded, rule ID: {heatingOffRuleResponse.Id}", () => { });
+                }
+                catch (Exception e)
+                {
+                    logger.Error($"Create heating-off rule failed, error details: {e.Message}", () => { });
+                }
             }
         }
     }
