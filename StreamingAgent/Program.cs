@@ -33,10 +33,10 @@ namespace Microsoft.Azure.IoTSolutions.IoTStreamAnalytics.StreamingAgent
             var ruleService = container.Resolve<IRules>();
             var logger = container.Resolve<ILogger>();
 
-            // Create new rule
+            // Create new rules
             RuleApiModel heatingOnRule = new RuleApiModel
             {
-                Name = "Start Hearting",
+                Name = "turn-on-heating",
                 Enabled = true,
                 Description = "Time to turn on hearing for user's smart toilet",
                 GroupId = "toilet",
@@ -61,9 +61,9 @@ namespace Microsoft.Azure.IoTSolutions.IoTStreamAnalytics.StreamingAgent
 
             RuleApiModel heatingOffRule = new RuleApiModel
             {
-                Name = "Start Hearting",
+                Name = "turn-off-heating",
                 Enabled = true,
-                Description = "Time to turn on hearing for user's smart toilet",
+                Description = "Time to turn off hearing for user's smart toilet",
                 GroupId = "toilet",
                 Severity = "info",
                 Conditions = new List<ConditionApiModel>
@@ -72,14 +72,14 @@ namespace Microsoft.Azure.IoTSolutions.IoTStreamAnalytics.StreamingAgent
                     {
                         Field = "time",
                         Operator = "Equals",
-                        Value = "5 PM"
+                        Value = "5:15 PM"
                     },
 
                     new ConditionApiModel
                     {
                         Field = "heatingStatus",
                         Operator = "Equals",
-                        Value = "off"
+                        Value = "on"
                     }
                 }
             };
