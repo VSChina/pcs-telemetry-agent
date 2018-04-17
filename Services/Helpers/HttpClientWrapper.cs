@@ -16,6 +16,8 @@ namespace Microsoft.Azure.IoTSolutions.IoTStreamAnalytics.Services.Helpers
         Task<T> GetAsync<T>(string uri, string description, bool acceptNotFound = false);
 
         Task<T> PostAsync<T>(string uri, T postObj, string description);
+
+        Task<T> PutAsync<T>(string uri, T postObj, string description);
     }
 
     public class HttpClientWrapper : IHttpClientWrapper
@@ -65,15 +67,7 @@ namespace Microsoft.Azure.IoTSolutions.IoTStreamAnalytics.Services.Helpers
                 throw new ExternalDependencyException($"Unable to load {description}");
             }
 
-            try
-            {
-                return JsonConvert.DeserializeObject<T>(response.Content);
-            }
-            catch (Exception e)
-            {
-                logger.Error($"Could not parse result from {uri}: {e.Message}", () => { });
-                throw new ExternalDependencyException($"Could not parse result from {uri}");
-            }
+            return ParseResponse<T>(response, uri);
         }
 
         public async Task<T> PostAsync<T>(string uri, T postObj, string description)
@@ -86,7 +80,7 @@ namespace Microsoft.Azure.IoTSolutions.IoTStreamAnalytics.Services.Helpers
 
             //request.Options.Timeout = 5 * 1000;
             //request.Options.AllowInsecureSSLServer = true;
-            request.Options.EnsureSuccess = false;
+            request.Options.EnsureSuccess = true;
 
             request.SetContent<T>(postObj, Encoding.UTF8, "application/json");
 
@@ -108,14 +102,51 @@ namespace Microsoft.Azure.IoTSolutions.IoTStreamAnalytics.Services.Helpers
                 throw new ExternalDependencyException($"Unable to create {description}");
             }
 
+            return ParseResponse<T>(response, uri);
+        }
+
+        public async Task<T> PutAsync<T>(string uri, T postObj, string description)
+        {
+            var request = new HttpRequest();
+            request.SetUriFromString(uri);
+            request.Headers.Add("Accept", "application/json");
+            request.Headers.Add("Cache-Control", "no-cache");
+            request.Headers.Add("User-Agent", "Telemetry Agent");
+            request.Options.EnsureSuccess = false;
+
+            request.SetContent<T>(postObj, Encoding.UTF8, "application/json");
+
+            IHttpResponse response;
+
+            try
+            {
+                response = await client.PutAsync(request);
+            }
+            catch (Exception e)
+            {
+                logger.Error("Request failed", () => new { uri, e });
+                throw new ExternalDependencyException($"Failed to update {description}");
+            }
+
+            if (response.StatusCode != HttpStatusCode.OK)
+            {
+                logger.Error("Request failed", () => new { uri, response.StatusCode, response.Content });
+                throw new ExternalDependencyException($"Unable to update {description}");
+            }
+
+            return ParseResponse<T>(response, uri);
+        }
+
+        private T ParseResponse<T>(IHttpResponse response, string requestUri)
+        {
             try
             {
                 return JsonConvert.DeserializeObject<T>(response.Content);
             }
             catch (Exception e)
             {
-                logger.Error($"Could not parse result from {uri}: {e.Message}", () => { });
-                throw new ExternalDependencyException($"Could not parse result from {uri}");
+                logger.Error($"Could not parse result from {requestUri}: {e.Message}", () => { });
+                throw new ExternalDependencyException($"Could not parse result from {requestUri}");
             }
         }
     }

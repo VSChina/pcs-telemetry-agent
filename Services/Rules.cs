@@ -14,7 +14,7 @@ namespace Microsoft.Azure.IoTSolutions.IoTStreamAnalytics.Services
 
         Task<RuleApiModel> CreateAsync(RuleApiModel rule);
 
-        Task<RuleApiModel> UpsertAsync(RuleApiModel rule);
+        Task<RuleApiModel> UpsertAsync(string id, RuleApiModel rule);
 
         Task DeleteAsync(string id);
 
@@ -45,10 +45,10 @@ namespace Microsoft.Azure.IoTSolutions.IoTStreamAnalytics.Services
             return await httpClient.PostAsync<RuleApiModel>(uri, rule, "monitoring rules");
         }
 
-        public async Task<RuleApiModel> UpsertAsync(RuleApiModel rule)
+        public async Task<RuleApiModel> UpsertAsync(string id, RuleApiModel rule)
         {
-            // TODO: implement
-            return await Task.FromResult<RuleApiModel>(null);
+            string requestUri = $"{uri}/{id}";
+            return await httpClient.PutAsync<RuleApiModel>(requestUri, rule, "monitoring rules");
         }
 
         public async Task DeleteAsync(string id)
@@ -59,8 +59,7 @@ namespace Microsoft.Azure.IoTSolutions.IoTStreamAnalytics.Services
 
         public async Task<RuleApiModel> GetAsync(string id)
         {
-            // TODO: implement
-            return await Task.FromResult<RuleApiModel>(null);
+            return await httpClient.GetAsync<RuleApiModel>($"{uri}/{id}", "monitoring rules");
         }
     }
 }
